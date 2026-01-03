@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Calls Proof</title>
+  </head>
+  <body>
+    <h1>Socket Proof</h1>
+    <pre id="log"></pre>
+
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script>
+      const log = (msg) => {
+        document.getElementById("log").textContent += msg + "\n";
+      };
+
+      const socket = io("https://calls-proof-backend.onrender.com", {
+        transports: ["websocket"],
+      });
+
+      socket.on("connect", () => {
+        log("connected: " + socket.id);
+        socket.emit("ping-test", "hello");
+      });
+
+      socket.on("pong-test", (msg) => {
+        log("pong from server: " + msg);
+      });
+
+      socket.on("connect_error", (err) => {
+        log("connect error: " + err.message);
+      });
+    </script>
+  </body>
+</html>
