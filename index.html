@@ -5,7 +5,7 @@
     <title>Calls Proof</title>
   </head>
   <body>
-    <h1>Socket Proof</h1>
+    <h1>Room Signaling Proof</h1>
     <pre id="log"></pre>
 
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
@@ -14,17 +14,34 @@
         document.getElementById("log").textContent += msg + "\n";
       };
 
+      const ROOM_ID = "test-room"; // both devices MUST use same value
+
       const socket = io("https://calls-proof-backend.onrender.com", {
         transports: ["websocket"],
       });
 
       socket.on("connect", () => {
         log("connected: " + socket.id);
-        socket.emit("ping-test", "hello");
+
+        socket.emit("room:join", { room: ROOM_ID });
+        log("joined room: " + ROOM_ID);
+
+        // send a fake signal after joining
+        setTimeout(() => {
+          socket.emit("signal", {
+            room: ROOM_ID,
+            data: { type: "fake-offer", sdp: "hello-from-" + socket.id },
+          });
+          log("sent signal");
+        }, 1000);
       });
 
-      socket.on("pong-test", (msg) => {
-        log("pong from server: " + msg);
+      socket.on("peer:joined", ({ id }) => {
+        log("peer joined: " + id);
+      });
+
+      socket.on("signal", ({ from, data }) => {
+        log("signal received from " + from + ": " + data.type);
       });
 
       socket.on("connect_error", (err) => {
