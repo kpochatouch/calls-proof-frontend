@@ -6,103 +6,116 @@
   </head>
   <body>
     <h1>Room Signaling Proof</h1>
+
+    <button id="start">Start Audio</button>
+
     <pre id="log"></pre>
-    <audio id="remoteAudio" autoplay></audio>
+
+    <audio id="remoteAudio" autoplay playsinline></audio>
 
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-<script>
-  const log = (msg) => {
-    document.getElementById("log").textContent += msg + "\n";
-  };
 
-  const ROOM_ID = "test-room";
+    <script>
+      const log = (msg) => {
+        document.getElementById("log").textContent += msg + "\n";
+      };
 
-  const socket = io("https://calls-proof-backend.onrender.com", {
-    transports: ["websocket"],
-  });
+      // ✅ USER GESTURE AUDIO UNLOCK (THIS WAS MISPLACED BEFORE)
+      document.getElementById("start").onclick = () => {
+        const audio = document.getElementById("remoteAudio");
+        audio.muted = false;
 
-  let pc;
+        audio
+          .play()
+          .then(() => {
+            log("audio unlocked by user gesture");
+          })
+          .catch((err) => {
+            log("audio still blocked: " + err.message);
+          });
+      };
 
-  socket.on("connect", async () => {
-    log("connected: " + socket.id);
+      const ROOM_ID = "test-room";
 
-    socket.emit("room:join", { room: ROOM_ID });
-
-    pc = new RTCPeerConnection({
-  iceServers: [
-    { urls: "stun:stun.l.google.com:19302" },
-
-    {
-      urls: "turn:relay1.expressturn.com:3478",
-      username: "efx5c3fI6k1g7s",
-      credential: "V7rG5s6O6S"
-    }
-  ],
-  iceTransportPolicy: "relay"
-});
-
-
-    // log ICE candidates (important for later)
-    pc.onicecandidate = (e) => {
-      if (e.candidate) {
-        socket.emit("signal", {
-          room: ROOM_ID,
-          data: { type: "ice", candidate: e.candidate },
-        });
-      }
-    };
-
-    // receive remote audio
-    pc.ontrack = (e) => {
-  log("remote audio received");
-
-  const audio = document.getElementById("remoteAudio");
-  audio.srcObject = e.streams[0];
-};
-
-
-    // get mic access
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    stream.getTracks().forEach((track) => pc.addTrack(track, stream));
-
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-
-    socket.emit("signal", {
-      room: ROOM_ID,
-      data: { type: "offer", sdp: offer },
-    });
-
-    log("offer sent");
-  });
-
-  socket.on("signal", async ({ from, data }) => {
-    if (!pc) return;
-
-    if (data.type === "offer") {
-      log("offer received from " + from);
-
-      await pc.setRemoteDescription(data.sdp);
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-
-      socket.emit("signal", {
-        room: ROOM_ID,
-        data: { type: "answer", sdp: answer },
+      const socket = io("https://calls-proof-backend.onrender.com", {
+        transports: ["websocket"],
       });
 
-      log("answer sent");
-    }
+      let pc;
 
-    if (data.type === "answer") {
-      log("answer received");
-      await pc.setRemoteDescription(data.sdp);
-    }
+      socket.on("connect", async () => {
+        log("connected: " + socket.id);
 
-    if (data.type === "ice") {
-      await pc.addIceCandidate(data.candidate);
-    }
-  });
-</script>
+        socket.emit("room:join", { room: ROOM_ID });
+
+        pc = new RTCPeerConnection({
+          iceServers: [
+            { urls: "stun:stun.l.google.com:19302" },
+            {
+              urls: "turn:relay1.expressturn.com:3478",
+              username: "efx5c3fI6k1g7s",
+              credential: "V7rG5s6O6S",
+            },
+          ],
+          iceTransportPolicy: "relay",
+        });
+
+        pc.onicecandidate = (e) => {
+          if (e.candidate) {
+            socket.emit("signal", {
+              room: ROOM_ID,
+              data: { type: "ice", candidate: e.candidate },
+            });
+          }
+        };
+
+        pc.ontrack = (e) => {
+          log("remote audio received");
+          const audio = document.getElementById("remoteAudio");
+          audio.srcObject = e.streams[0];
+        };
+
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+
+        socket.emit("signal", {
+          room: ROOM_ID,
+          data: { type: "offer", sdp: offer },
+        });
+
+        log("offer sent");
+      });
+
+      socket.on("signal", async ({ from, data }) => {
+        if (!pc) return;
+
+        if (data.type === "offer") {
+          log("offer received from " + from);
+
+          await pc.setRemoteDescription(data.sdp);
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+
+          socket.emit("signal", {
+            room: ROOM_ID,
+            data: { type: "answer", sdp: answer },
+          });
+
+          log("answer sent");
+        }
+
+        if (data.type === "answer") {
+          log("answer received");
+          await pc.setRemoteDescription(data.sdp);
+        }
+
+        if (data.type === "ice") {
+          await pc.addIceCandidate(data.candidate);
+        }
+      });
+    </script>
   </body>
 </html>
