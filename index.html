@@ -28,7 +28,19 @@
 
     socket.emit("room:join", { room: ROOM_ID });
 
-    pc = new RTCPeerConnection();
+    pc = new RTCPeerConnection({
+  iceServers: [
+    { urls: "stun:stun.l.google.com:19302" },
+
+    {
+      urls: "turn:relay1.expressturn.com:3478",
+      username: "efx5c3fI6k1g7s",
+      credential: "V7rG5s6O6S"
+    }
+  ],
+  iceTransportPolicy: "relay"
+});
+
 
     // log ICE candidates (important for later)
     pc.onicecandidate = (e) => {
